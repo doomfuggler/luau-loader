@@ -2,10 +2,6 @@ export default async function handler(req, res) {
   const { id } = req.query;
   const userAgent = (req.headers['user-agent'] || '').toLowerCase();
   
-  const host = req.headers.host;
-  const protocol = req.headers['x-forwarded-proto'] || 'https';
-  const rawUrl = `${protocol}://${host}/api/raw?id=${id || ''}`;
-
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
   // Detect Roblox Executors vs Web Browsers
@@ -15,9 +11,10 @@ export default async function handler(req, res) {
                            userAgent.includes('curl') ||
                            !userAgent.includes('mozilla');
 
-  // Return copyable loadstring snippet when opened in web browsers
   if (!isRobloxExecutor && (userAgent.includes('chrome') || userAgent.includes('safari') || userAgent.includes('edge'))) {
-    return res.status(200).send(`loadstring(game:HttpGet("${rawUrl}"))()`);
+    const host = req.headers.host;
+    const protocol = req.headers['x-forwarded-proto'] || 'https';
+    return res.status(200).send(`loadstring(game:HttpGet("${protocol}://${host}/api/raw?id=${id || ''}"))()`);
   } 
 
   if (!id) {
@@ -25,16 +22,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch raw Luau code directly from Base44 database
-    const response = await fetch(`https://luna-script-shield.base44.app/api/script/${id}`);
+    // Fetch directly from your free GitHub repository
+    const githubRawUrl = `https://raw.githubusercontent.com/doomfuggler/luau-loader/main/scripts/${id}.lua`;
+    const response = await fetch(githubRawUrl);
 
     if (!response.ok) {
-      return res.status(200).send(`warn("Vercel Loader Error: Script ID '${id}' not found in Base44 database.")`);
+      return res.status(200).send(`warn("Vercel Loader Error: Script '${id}.lua' not found in GitHub scripts folder.")`);
     }
 
     const scriptCode = await response.text();
     return res.status(200).send(scriptCode);
   } catch (error) {
-    return res.status(200).send('warn("Vercel Loader Error: Failed to connect to Base44.")');
+    return res.status(200).send('warn("Vercel Loader Error: Failed to fetch script from GitHub.")');
   }
 }
