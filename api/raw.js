@@ -6,36 +6,44 @@ export default async function handler(req, res) {
   const protocol = req.headers['x-forwarded-proto'] || 'https';
   const rawUrl = `${protocol}://${host}/api/raw?id=${id || ''}`;
 
-  // Force text/plain so game:HttpGet works seamlessly in executors
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
-  // Detect web browser visits (Chrome, Safari, Mobile Browsers)
-  const isBrowser = userAgent.includes('mozilla') || 
-                    userAgent.includes('chrome') || 
-                    userAgent.includes('safari') || 
-                    userAgent.includes('mobile');
+  // Detect genuine Roblox Executors vs Web Browsers
+  const isRobloxExecutor = userAgent.includes('roblox') || 
+                           userAgent.includes('delta') || 
+                           userAgent.includes('executor') || 
+                           userAgent.includes('curl') ||
+                           !userAgent.includes('mozilla');
 
-  if (isBrowser) {
-    // Mobile/Desktop web browsers see ONLY the copyable loadstring
+  if (!isRobloxExecutor && (userAgent.includes('chrome') || userAgent.includes('safari') || userAgent.includes('edge'))) {
     return res.status(200).send(`loadstring(game:HttpGet("${rawUrl}"))()`);
   } 
 
   if (!id) {
-    return res.status(400).send('-- Error: Missing Script ID in request');
+    return res.status(200).send('warn("Vercel Loader: Missing Script ID in request")');
   }
 
   try {
-    // Fetches the compiled code directly from your Base44 app
-    const base44Url = `https://luna-script-shield.base44.app/api/script/${id}`;
-    const response = await fetch(base44Url);
-
+    // Check main and preview domains
+    let response = await fetch(`https://luna-script-shield.base44.app/api/script/${id}`);
     if (!response.ok) {
-      return res.status(404).send('-- Error: Script ID not found on server');
+      response = await fetch(`https://preview--luna-script-shield.base44.app/api/script/${id}`);
     }
 
-    const obfuscatedCode = await response.text();
-    return res.status(200).send(obfuscatedCode);
+    if (!response.ok) {
+      return res.status(200).send(`warn("Vercel Loader Error: Script ID '${id}' not found in Base44 database.")`);
+    }
+
+    const responseText = await response.text();
+    
+    try {
+      const json = JSON.parse(responseText);
+      const rawCode = json.code || json.script || json.data || responseText;
+      return res.status(200).send(rawCode);
+    } catch {
+      return res.status(200).send(responseText);
+    }
   } catch (error) {
-    return res.status(500).send('-- Error: Failed to fetch script payload');
+    return res.status(200).send('warn("Vercel Loader Error: Failed to connect to Base44 server.")');
   }
 }
