@@ -6,17 +6,17 @@ export default async function handler(req, res) {
   const protocol = req.headers['x-forwarded-proto'] || 'https';
   const rawUrl = `${protocol}://${host}/api/raw?id=${id || ''}`;
 
-  // Force text/plain for Roblox executor compatibility
+  // Force text/plain so game:HttpGet works seamlessly in executors
   res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
-  // Detect web browser visits
+  // Detect web browser visits (Chrome, Safari, Mobile Browsers)
   const isBrowser = userAgent.includes('mozilla') || 
                     userAgent.includes('chrome') || 
                     userAgent.includes('safari') || 
                     userAgent.includes('mobile');
 
   if (isBrowser) {
-    // Browsers see ONLY the copyable loadstring command
+    // Mobile/Desktop web browsers see ONLY the copyable loadstring
     return res.status(200).send(`loadstring(game:HttpGet("${rawUrl}"))()`);
   } 
 
@@ -25,8 +25,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Dynamically fetch the compiled code from Base44 database
-    const base44Url = `https://YOUR-BASE44-APP.base44.app/api/script/${id}`;
+    // Fetches the compiled code directly from your Base44 app
+    const base44Url = `https://luna-script-shield.base44.app/api/script/${id}`;
     const response = await fetch(base44Url);
 
     if (!response.ok) {
